@@ -2,6 +2,12 @@
 
 Scripts for Downloading Graph Datasets
 
+Usage:
+
+```python
+
+```
+
 ## SNAP Dataset Downloader and Overview
 
 This project includes a Python script (`download_datasets.py`) to automatically download, decompress, and manage a collection of popular graph datasets from the Stanford Network Analysis Project (SNAP).
