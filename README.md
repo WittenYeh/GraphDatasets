@@ -5,7 +5,7 @@ Scripts for Downloading Graph Datasets
 Usage:
 
 ```python
-
+python download_dataset.py
 ```
 
 ## SNAP Dataset Downloader and Overview

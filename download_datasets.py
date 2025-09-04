@@ -112,7 +112,7 @@ def download_and_extract(url: str):
 
 
 def main():
-    """
+    """r
     脚本主函数，遍历所有URL并执行下载解压任务。
     """
     print("--- 开始下载并处理SNAP数据集 ---")
