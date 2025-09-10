@@ -37,6 +37,9 @@ dist/
 *.mtx
 *.zip
 *.html
+*.col
+*.dst
+*.val
 
 # 忽略打包的压缩文件
 *.tar.gz
