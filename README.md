@@ -67,11 +67,13 @@ src,dst,weight
 ```
 
 ### Key Conventions
-- ✅ **0-indexed**: All node IDs start from 0
+- ✅ **Contiguous 0-based node IDs**: All node IDs are remapped to a contiguous sequence starting from 0
 - ✅ **UTF-8 encoded**: Universal compatibility
 - ✅ **Header row**: Column names in first line
 - ✅ **Comma-delimited**: Standard CSV format
 - ✅ **Optional properties**: Extensible with additional columns (e.g., `type`, `label`)
+
+**Note**: Node IDs are always remapped to a contiguous 0-based sequence [0, 1, 2, ..., N-1], regardless of the original IDs in the source dataset. This ensures consistent and efficient indexing across all datasets.
 
 ## 📚 Supported Datasets
 
@@ -176,9 +178,9 @@ Some datasets include additional node/edge properties:
 
 **Yelp** (bipartite graph):
 ```csv
-node_id,type
-0,business
-150000,user
+node_id,type,stars,review_count
+0,business,4.0,12
+150346,user,3.72,15
 ...
 ```
 

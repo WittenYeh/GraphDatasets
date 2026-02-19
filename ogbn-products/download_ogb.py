@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 Download OGB dataset using official loader and convert to CSV format.
-Generates two files: nodes.csv and edges.csv
+Generates two files: nodes.csv (with labels) and edges.csv
 """
 
 import os
 import sys
+import csv
 
 # Monkey patch input to auto-confirm downloads
 original_input = input
@@ -28,58 +29,49 @@ def download_and_convert(dataset_name="ogbn-products", output_dir="."):
 
     try:
         from tqdm import tqdm
-        has_tqdm = True
     except ImportError:
-        has_tqdm = False
+        tqdm = lambda iterable, **kwargs: iterable
         print("Note: Install tqdm for progress bars (pip install tqdm)")
 
     print(f"Downloading {dataset_name} using OGB official loader...")
     dataset = NodePropPredDataset(name=dataset_name, root=output_dir)
 
     print("Processing graph data...")
+    # Optimization 1: Extract both graph and labels simultaneously
     graph, labels = dataset[0]
     edge_index = graph['edge_index']
     num_nodes = graph['num_nodes']
 
+    # Flatten labels (OGB labels typically have shape [num_nodes, 1])
+    if len(labels.shape) == 2 and labels.shape[1] == 1:
+        labels = labels.flatten()
+
     # Generate nodes.csv
     nodes_file = os.path.join(output_dir, "nodes.csv")
-    print(f"Writing nodes to {nodes_file}...")
-    with open(nodes_file, 'w') as f:
-        f.write("node_id\n")
-        if has_tqdm:
-            for i in tqdm(range(num_nodes), desc="Writing nodes", unit="nodes"):
-                f.write(f"{i}\n")
-        else:
-            for i in range(num_nodes):
-                f.write(f"{i}\n")
-                if i % 500000 == 0 and i > 0:
-                    print(f"  Progress: {i:,}/{num_nodes:,} nodes")
+    print(f"Writing nodes and labels to {nodes_file}...")
+    with open(nodes_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["node_id", "label"])  # Add label header
+
+        # Optimization 2: Use zip and writerows for fast batch writing, eliminating for-loop overhead
+        node_data = zip(range(num_nodes), labels)
+        writer.writerows(tqdm(node_data, total=num_nodes, desc="Writing nodes", unit="nodes"))
 
     # Generate edges.csv
     edges_file = os.path.join(output_dir, "edges.csv")
     print(f"Writing edges to {edges_file}...")
-    num_edges = edge_index.shape[1]
-    with open(edges_file, 'w') as f:
-        f.write("src,dst\n")
-        if has_tqdm:
-            for i in tqdm(range(num_edges), desc="Writing edges", unit="edges"):
-                src = edge_index[0][i]
-                dst = edge_index[1][i]
-                f.write(f"{src},{dst}\n")
-        else:
-            for i in range(num_edges):
-                src = edge_index[0][i]
-                dst = edge_index[1][i]
-                f.write(f"{src},{dst}\n")
-                if i % 5000000 == 0 and i > 0:
-                    print(f"  Progress: {i:,}/{num_edges:,} edges")
+    with open(edges_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["src", "dst"])
+
+        # Optimization 3: Transpose the edge matrix directly from (2, num_edges) to (num_edges, 2), then batch write
+        edges_t = edge_index.T
+        writer.writerows(tqdm(edges_t, total=edges_t.shape[0], desc="Writing edges", unit="edges"))
 
     print(f"✓ Dataset downloaded and converted")
     print(f"  Nodes: {num_nodes:,}")
-    print(f"  Edges: {num_edges:,}")
-    print(f"  Output files:")
-    print(f"    - {nodes_file}")
-    print(f"    - {edges_file}")
+    print(f"  Edges: {edge_index.shape[1]:,}")
+    print(f"  Output files:\n    - {nodes_file}\n    - {edges_file}")
 
 if __name__ == "__main__":
     download_and_convert()

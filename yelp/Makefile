@@ -13,8 +13,5 @@ nodes.csv edges.csv:
 fetch: nodes.csv edges.csv
 
 clean:
-	rm -f nodes.csv edges.csv
-
-realclean: clean
 	rm -f yelp_academic_dataset_*.json Yelp-JSON.zip
-	@echo "✓ All files cleaned"
+	@echo "✓ CSV files cleaned, JSON zip removed"

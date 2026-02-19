@@ -28,29 +28,30 @@ This will:
 ### Clean
 ```bash
 make clean      # Remove generated CSV files
-make realclean  # Remove all files including JSON data and zip
 ```
 
 ## Output Format
 
 ### nodes.csv
 ```
-node_id,type
-0,business
-1,business
+node_id,type,stars,review_count
+0,business,4.0,12
+1,business,3.5,8
 ...
-150000,user
-150001,user
+150346,user,3.72,15
+150347,user,4.12,42
 ...
 ```
 
 ### edges.csv
 ```
 src,dst
-150000,0
-150001,5
+150346,0
+150347,5
 ...
 ```
+
+Node IDs are contiguous 0-based integers. Businesses are assigned IDs first, followed by users.
 
 ## Requirements
 - Python 3

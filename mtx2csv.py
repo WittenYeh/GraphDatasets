@@ -6,116 +6,67 @@ Generates two files: nodes.csv and edges.csv
 
 import sys
 import os
+import csv
+from tqdm import tqdm
 
 def parse_mtx_to_csv(mtx_file, output_dir="."):
     """
     Parse MTX file and convert to nodes.csv and edges.csv.
-
-    MTX format:
-    - Lines starting with % are comments
-    - First non-comment line: rows cols entries
-    - Following lines: row col [value]
     """
-
-    try:
-        from tqdm import tqdm
-        has_tqdm = True
-    except ImportError:
-        has_tqdm = False
-        print("Note: Install tqdm for progress bars (pip install tqdm)")
-
     if not os.path.exists(mtx_file):
         print(f"Error: File {mtx_file} not found", file=sys.stderr)
         sys.exit(1)
 
     print(f"Parsing {mtx_file}...")
 
-    nodes = set()
-    edges = []
+    raw_nodes = set()
+    raw_edges = []
 
     with open(mtx_file, 'r') as f:
-        # Skip comments
         for line in f:
             line = line.strip()
-            if not line.startswith('%'):
-                # First non-comment line: rows cols entries
-                parts = line.split()
-                num_rows = int(parts[0])
-                num_cols = int(parts[1])
-                num_entries = int(parts[2])
+            if line and not line.startswith('%'):
+                num_rows, num_cols, num_entries = map(int, line.split())
                 print(f"  Matrix size: {num_rows} x {num_cols}, entries: {num_entries}")
                 break
 
-        # Read edges
-        if has_tqdm:
-            for line in tqdm(f, total=num_entries, desc="Reading edges", unit="edges"):
-                line = line.strip()
-                if not line or line.startswith('%'):
-                    continue
+        # Read edge data (keep original 1-indexed IDs for now)
+        for line in tqdm(f, total=num_entries, desc="Reading edges", unit="edges"):
+            parts = line.split()
+            if len(parts) >= 2:
+                src, dst = int(parts[0]), int(parts[1])
+                raw_nodes.update((src, dst))
+                raw_edges.append((src, dst))
 
-                parts = line.split()
-                if len(parts) >= 2:
-                    # MTX format is 1-indexed, convert to 0-indexed
-                    src = int(parts[0]) - 1
-                    dst = int(parts[1]) - 1
+    # Build contiguous 0-based ID mapping
+    id_map = {old_id: new_id for new_id, old_id in enumerate(sorted(raw_nodes))}
 
-                    nodes.add(src)
-                    nodes.add(dst)
-                    edges.append((src, dst))
-        else:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('%'):
-                    continue
-
-                parts = line.split()
-                if len(parts) >= 2:
-                    # MTX format is 1-indexed, convert to 0-indexed
-                    src = int(parts[0]) - 1
-                    dst = int(parts[1]) - 1
-
-                    nodes.add(src)
-                    nodes.add(dst)
-                    edges.append((src, dst))
-
-    # Write nodes.csv
     nodes_file = os.path.join(output_dir, "nodes.csv")
     print(f"Writing nodes to {nodes_file}...")
-    sorted_nodes = sorted(nodes)
-    with open(nodes_file, 'w') as f:
-        f.write("node_id\n")
-        if has_tqdm:
-            for node in tqdm(sorted_nodes, desc="Writing nodes", unit="nodes"):
-                f.write(f"{node}\n")
-        else:
-            for node in sorted_nodes:
-                f.write(f"{node}\n")
+    with open(nodes_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["node_id"])
+        writer.writerows([[new_id] for new_id in tqdm(range(len(id_map)), desc="Writing nodes", unit="nodes")])
 
-    # Write edges.csv
     edges_file = os.path.join(output_dir, "edges.csv")
     print(f"Writing edges to {edges_file}...")
-    with open(edges_file, 'w') as f:
-        f.write("src,dst\n")
-        if has_tqdm:
-            for src, dst in tqdm(edges, desc="Writing edges", unit="edges"):
-                f.write(f"{src},{dst}\n")
-        else:
-            for src, dst in edges:
-                f.write(f"{src},{dst}\n")
+    with open(edges_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["src", "dst"])
+        writer.writerows(tqdm([(id_map[s], id_map[d]) for s, d in raw_edges], desc="Writing edges", unit="edges"))
 
     print(f"✓ Conversion complete")
-    print(f"  Nodes: {len(nodes):,}")
-    print(f"  Edges: {len(edges):,}")
-    print(f"  Output files:")
-    print(f"    - {nodes_file}")
-    print(f"    - {edges_file}")
+    print(f"  Nodes: {len(id_map):,}")
+    print(f"  Edges: {len(raw_edges):,}")
+    print(f"  Output files:\n    - {nodes_file}\n    - {edges_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python3 mtx2csv.py <mtx_file>")
         sys.exit(1)
 
-    mtx_file = sys.argv[1]
-    output_dir = os.path.dirname(mtx_file) if os.path.dirname(mtx_file) else "."
+    mtx_path = sys.argv[1]
+    # Default to the current directory if os.path.dirname returns an empty string
+    out_dir = os.path.dirname(mtx_path) or "."
 
-    parse_mtx_to_csv(mtx_file, output_dir)
+    parse_mtx_to_csv(mtx_path, out_dir)

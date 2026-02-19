@@ -57,6 +57,10 @@ ogbn-products/ogbn_products*/
 
 # 忽略 Yelp 下载的文件
 yelp/yelp_academic_dataset_*.json
+yelp/Yelp-JSON.zip
+yelp/Yelp JSON/
+yelp/__MACOSX/
+yelp/*.pdf
 
 
 # ===================================================================
