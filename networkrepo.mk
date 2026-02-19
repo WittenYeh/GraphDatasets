@@ -9,20 +9,10 @@ setup: nodes.csv edges.csv
 nodes.csv edges.csv: $(GRAPH_NAME).mtx
 	python3 $(MTX2CSV) $(GRAPH_NAME).mtx
 
-$(GRAPH_NAME).mtx: $(GRAPH_ZIP)
-	@if [ -f $(GRAPH_NAME).mtx ]; then \
-		echo "✓ $(GRAPH_NAME).mtx already exists, skipping extraction"; \
-	else \
-		unzip $(GRAPH_ZIP); \
-		rm -f $(GRAPH_ZIP); \
-	fi
-
-$(GRAPH_ZIP):
-	@if [ -f $(GRAPH_NAME).mtx ]; then \
-		echo "✓ $(GRAPH_NAME).mtx already exists, skipping download"; \
-	else \
-		$(WGET) $(GRAPH_URL); \
-	fi
+$(GRAPH_NAME).mtx:
+	$(WGET) $(GRAPH_URL)
+	unzip $(GRAPH_ZIP)
+	rm -f $(GRAPH_ZIP)
 
 clean:
 	rm -f $(GRAPH_NAME).mtx nodes.csv edges.csv
