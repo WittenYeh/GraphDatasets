@@ -18,6 +18,7 @@ fetch: nodes.csv edges.csv
 
 clean:
 	rm -f nodes.csv edges.csv
+	rm -rf ./ogbn_products/
 
 realclean: clean
 	rm -rf ogbn_products_pyg ogbn_products_dgl
