@@ -7,6 +7,17 @@ Generates two files: nodes.csv and edges.csv
 import os
 import sys
 
+# Monkey patch input to auto-confirm downloads
+original_input = input
+def auto_confirm_input(prompt):
+    if "Will you proceed?" in prompt:
+        print(prompt + "y (auto-confirmed)")
+        return "y"
+    return original_input(prompt)
+
+import builtins
+builtins.input = auto_confirm_input
+
 def download_and_convert(dataset_name="ogbn-products", output_dir="."):
     """Download OGB dataset using official loader and convert to CSV format."""
     try:
