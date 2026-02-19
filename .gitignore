@@ -48,6 +48,9 @@ dist/
 # 忽略日志文件
 *.log
 
+# 忽略 LDBC SNB 生成的数据集目录
+ldbc-snb/ldbc-snb-sf*/
+
 
 # ===================================================================
 # IDE / Editor Configuration

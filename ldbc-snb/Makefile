@@ -20,16 +20,16 @@ all: setup
 
 setup: $(OUTPUT_DIR)
 
-# Clone the official LDBC datagen repository
+# Clone the official LDBC datagen repository (submodule should already exist)
 $(DATAGEN_DIR):
-	@echo "Cloning LDBC SNB datagen repository..."
-	git clone $(DATAGEN_REPO) $(DATAGEN_DIR)
-	@echo "✓ Repository cloned"
+	@echo "Initializing LDBC SNB datagen submodule..."
+	git submodule update --init --recursive
+	@echo "✓ Submodule initialized"
 
-# Generate the dataset using official tool
-$(OUTPUT_DIR): $(DATAGEN_DIR) run_datagen.sh
+# Generate the dataset using Docker
+$(OUTPUT_DIR): $(DATAGEN_DIR) run_datagen_docker.sh Dockerfile
 	@echo "Generating LDBC SNB dataset with scale factor $(SCALE)..."
-	bash run_datagen.sh $(SCALE) $(OUTPUT_DIR)
+	bash run_datagen_docker.sh $(SCALE) $(OUTPUT_DIR)
 	@echo "✓ Dataset generated in $(OUTPUT_DIR)"
 
 fetch: $(DATAGEN_DIR)
@@ -38,4 +38,6 @@ clean:
 	rm -rf ldbc-snb-sf*
 
 realclean: clean
-	rm -rf $(DATAGEN_DIR)
+	docker rmi ldbc-snb-datagen 2>/dev/null || true
+	@echo "✓ Cleaned (submodule preserved)"
+
