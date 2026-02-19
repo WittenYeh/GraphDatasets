@@ -26,6 +26,13 @@ def download_and_convert(dataset_name="ogbn-products", output_dir="."):
         print("Error: ogb library not found. Install with: pip install ogb", file=sys.stderr)
         sys.exit(1)
 
+    try:
+        from tqdm import tqdm
+        has_tqdm = True
+    except ImportError:
+        has_tqdm = False
+        print("Note: Install tqdm for progress bars (pip install tqdm)")
+
     print(f"Downloading {dataset_name} using OGB official loader...")
     dataset = NodePropPredDataset(name=dataset_name, root=output_dir)
 
@@ -39,22 +46,37 @@ def download_and_convert(dataset_name="ogbn-products", output_dir="."):
     print(f"Writing nodes to {nodes_file}...")
     with open(nodes_file, 'w') as f:
         f.write("node_id\n")
-        for i in range(num_nodes):
-            f.write(f"{i}\n")
+        if has_tqdm:
+            for i in tqdm(range(num_nodes), desc="Writing nodes", unit="nodes"):
+                f.write(f"{i}\n")
+        else:
+            for i in range(num_nodes):
+                f.write(f"{i}\n")
+                if i % 500000 == 0 and i > 0:
+                    print(f"  Progress: {i:,}/{num_nodes:,} nodes")
 
     # Generate edges.csv
     edges_file = os.path.join(output_dir, "edges.csv")
     print(f"Writing edges to {edges_file}...")
+    num_edges = edge_index.shape[1]
     with open(edges_file, 'w') as f:
         f.write("src,dst\n")
-        for i in range(edge_index.shape[1]):
-            src = edge_index[0][i]
-            dst = edge_index[1][i]
-            f.write(f"{src},{dst}\n")
+        if has_tqdm:
+            for i in tqdm(range(num_edges), desc="Writing edges", unit="edges"):
+                src = edge_index[0][i]
+                dst = edge_index[1][i]
+                f.write(f"{src},{dst}\n")
+        else:
+            for i in range(num_edges):
+                src = edge_index[0][i]
+                dst = edge_index[1][i]
+                f.write(f"{src},{dst}\n")
+                if i % 5000000 == 0 and i > 0:
+                    print(f"  Progress: {i:,}/{num_edges:,} edges")
 
     print(f"✓ Dataset downloaded and converted")
     print(f"  Nodes: {num_nodes:,}")
-    print(f"  Edges: {edge_index.shape[1]:,}")
+    print(f"  Edges: {num_edges:,}")
     print(f"  Output files:")
     print(f"    - {nodes_file}")
     print(f"    - {edges_file}")
