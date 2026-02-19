@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Download and convert IMDB dataset to CSV format.
+Convert IMDB TSV dataset to CSV format.
+Expects decompressed .tsv files in the current directory (handled by Makefile).
 Generates two files: nodes.csv (with features) and edges.csv
 
 Graph model (bipartite):
@@ -9,72 +10,39 @@ Graph model (bipartite):
   - Node properties: type, primary info, ratings
 """
 
-import os
-import sys
 import csv
-import gzip
-import urllib.request
-
-IMDB_BASE_URL = "https://datasets.imdbws.com/"
-DATASETS = [
-    "name.basics.tsv.gz",
-    "title.basics.tsv.gz",
-    "title.principals.tsv.gz",
-    "title.ratings.tsv.gz",
-]
+import os
+from tqdm import tqdm
 
 
-def download_file(filename, output_dir="."):
-    """Download a single IMDB dataset file if not already present."""
-    filepath = os.path.join(output_dir, filename)
-    if os.path.exists(filepath):
-        print(f"Already exists: {filepath}")
-        return filepath
-
-    url = IMDB_BASE_URL + filename
-    print(f"Downloading {url}...")
-    try:
-        from tqdm import tqdm
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-        })
-        with urllib.request.urlopen(req) as response, open(filepath, 'wb') as out:
-            total = int(response.headers.get('Content-Length', 0))
-            with tqdm(total=total, unit='B', unit_scale=True, desc=filename) as pbar:
-                while True:
-                    chunk = response.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    out.write(chunk)
-                    pbar.update(len(chunk))
-    except ImportError:
-        urllib.request.urlretrieve(url, filepath)
-    print(f"  Downloaded: {filepath}")
-    return filepath
+def count_lines(filepath):
+    """Count lines in a file (excluding header)."""
+    with open(filepath, 'r', encoding='utf-8') as f:
+        f.readline()
+        return sum(1 for _ in f)
 
 
-def read_tsv_gz(filepath):
-    """Yield rows from a gzipped TSV file as dicts."""
-    with gzip.open(filepath, 'rt', encoding='utf-8') as f:
+def read_tsv(filepath, desc=None):
+    """Yield rows from a TSV file as dicts, with progress bar."""
+    total = count_lines(filepath) if desc else None
+    with open(filepath, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-        yield from reader
+        if desc:
+            yield from tqdm(reader, total=total, desc=desc, unit="rows")
+        else:
+            yield from reader
 
 
 def convert_to_csv(output_dir="."):
     """Convert IMDB TSV files to nodes.csv and edges.csv."""
-    try:
-        from tqdm import tqdm
-    except ImportError:
-        tqdm = lambda iterable, **kwargs: iterable
 
     # --- Pass 1: Read title.principals to find referenced titles and people ---
     print("Pass 1: Scanning title.principals for referenced IDs...")
-    principals_file = os.path.join(output_dir, "title.principals.tsv.gz")
     referenced_titles = set()
     referenced_people = set()
     edge_pairs = []
 
-    for row in tqdm(read_tsv_gz(principals_file), desc="Scanning principals", unit="rows"):
+    for row in read_tsv(os.path.join(output_dir, "title.principals.tsv"), desc="Scanning principals"):
         tconst = row['tconst']
         nconst = row['nconst']
         referenced_titles.add(tconst)
@@ -89,11 +57,9 @@ def convert_to_csv(output_dir="."):
     id_map = {}
     next_id = 0
 
-    # Load ratings into a lookup dict
     print("Loading title ratings...")
-    ratings_file = os.path.join(output_dir, "title.ratings.tsv.gz")
     ratings = {}
-    for row in tqdm(read_tsv_gz(ratings_file), desc="Reading ratings", unit="rows"):
+    for row in read_tsv(os.path.join(output_dir, "title.ratings.tsv"), desc="Reading ratings"):
         ratings[row['tconst']] = row.get('averageRating', '')
 
     nodes_file = os.path.join(output_dir, "nodes.csv")
@@ -103,11 +69,8 @@ def convert_to_csv(output_dir="."):
         writer = csv.writer(f)
         writer.writerow(["node_id", "type", "name", "year", "rating"])
 
-        # Process titles
-        print("Processing titles...")
         title_count = 0
-        title_file = os.path.join(output_dir, "title.basics.tsv.gz")
-        for row in tqdm(read_tsv_gz(title_file), desc="Reading titles", unit="rows"):
+        for row in read_tsv(os.path.join(output_dir, "title.basics.tsv"), desc="Reading titles"):
             tconst = row['tconst']
             if tconst not in referenced_titles:
                 continue
@@ -121,11 +84,8 @@ def convert_to_csv(output_dir="."):
             next_id += 1
             title_count += 1
 
-        # Process people
-        print("Processing people...")
         people_count = 0
-        name_file = os.path.join(output_dir, "name.basics.tsv.gz")
-        for row in tqdm(read_tsv_gz(name_file), desc="Reading people", unit="rows"):
+        for row in read_tsv(os.path.join(output_dir, "name.basics.tsv"), desc="Reading people"):
             nconst = row['nconst']
             if nconst not in referenced_people:
                 continue
@@ -167,7 +127,4 @@ def convert_to_csv(output_dir="."):
 
 
 if __name__ == "__main__":
-    output_dir = "."
-    for ds in DATASETS:
-        download_file(ds, output_dir)
-    convert_to_csv(output_dir)
+    convert_to_csv(".")

@@ -42,6 +42,9 @@ dist/
 *.dst
 *.val
 *.csv
+*.tsv
+*.gz
+*.tsv.gz
 
 # 忽略打包的压缩文件
 *.tar.gz
