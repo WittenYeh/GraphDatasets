@@ -7,11 +7,13 @@ setup: $(GRAPH_NAME).mtx
 
 $(GRAPH_NAME).mtx: $(GRAPH_ZIP)
 	unzip $(GRAPH_ZIP)
-	rm -rf readme.txt
+	rm -f $(GRAPH_ZIP)
 
 clean:
-	rm $(GRAPH_NAME).mtx
+	rm -f $(GRAPH_NAME).mtx
+	rm -f readme.txt
 
 realclean: clean
-	rm $(GRAPH_ZIP)
+	@echo "All files cleaned (zip already removed during setup)"
+
 
