@@ -2,8 +2,12 @@
 #just define GRAPH_NAME prior to including this fragment
 
 GRAPH_TAR  = $(GRAPH_NAME).tar.gz
+MTX2CSV    = ../mtx2csv.py
 
-setup: $(GRAPH_NAME).mtx
+setup: nodes.csv edges.csv
+
+nodes.csv edges.csv: $(GRAPH_NAME).mtx
+	python3 $(MTX2CSV) $(GRAPH_NAME).mtx
 
 $(GRAPH_NAME).mtx: $(GRAPH_TAR)
 	tar xvfz $(GRAPH_TAR)
@@ -12,7 +16,7 @@ $(GRAPH_NAME).mtx: $(GRAPH_TAR)
 	rm -f $(GRAPH_TAR)
 
 clean:
-	rm -f $(GRAPH_NAME).mtx
+	rm -f $(GRAPH_NAME).mtx nodes.csv edges.csv
 
 realclean: clean
 	@echo "All files cleaned (tar.gz already removed during setup)"
