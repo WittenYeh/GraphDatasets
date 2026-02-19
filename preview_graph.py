@@ -1,132 +1,163 @@
+#!/usr/bin/env python3
 """
-Graph data processing tool.
+Graph dataset preview tool.
 
-Features:
-1. Read and print the first k lines of a file (for data preview).
-2. Count the number of edges in a graph dataset (supports .mtx header parsing or general line counting).
+Usage:
+  python preview_graph.py stats <directory>   Show dataset statistics with Rich visualization
+  python preview_graph.py count <file>        Count edges in a graph file
 """
 
 import argparse
+import csv
+import math
+import os
 import sys
-
-def read_first_k_lines(filename, k):
-    """
-    Reads and prints the first k lines of the specified file.
-
-    Args:
-    filename (str): The path to the file.
-    k (int): The number of lines to read.
-    """
-    # Check if k is valid (if k is None, the user didn't provide it)
-    if k is None:
-        print("Error: Please provide the number of lines 'k' to read, or use the --count argument.", file=sys.stderr)
-        return
-
-    # Check if k is a positive integer
-    if k <= 0:
-        print(f"Error: Number of lines 'k' must be a positive integer. You provided: {k}", file=sys.stderr)
-        return
-
-    try:
-        # Use 'with open' to ensure the file is closed properly
-        # Specify encoding='utf-8' to handle various text files better
-        with open(filename, 'r', encoding='utf-8') as f:
-            print(f"--- First {k} lines of file '{filename}' ---")
-            # Read the file line by line
-            for i, line in enumerate(f):
-                # Stop when we reach the k-th line (enumerate starts at 0)
-                if i >= k:
-                    break
-                # Print the line. 'line' already contains a newline, so use end=''
-                print(line, end='')
-
-    except FileNotFoundError:
-        print(f"Error: File '{filename}' not found.", file=sys.stderr)
-    except Exception as e:
-        print(f"Error reading file: {e}", file=sys.stderr)
+from collections import Counter
 
 
 def count_graph_edges(filename):
-    """
-    Counts the number of edges in the graph dataset.
-
-    Logic:
-    1. If Matrix Market (.mtx): Parses the header information (very fast).
-    2. If General Text: Counts non-comment lines (starts with # or %).
-
-    Args:
-    filename (str): Path to the file.
-    """
+    """Count edges in a graph file (MTX header or line count)."""
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             first_line = f.readline()
-
-            # Check if it is Matrix Market format
             if first_line.startswith('%%MatrixMarket'):
-                # .mtx format: Edges are usually defined in the first non-comment line
                 for line in f:
-                    # Skip comment lines
                     if line.startswith('%'):
                         continue
-
-                    # Find the first non-comment line. Format: Rows Cols NonZero(Edges)
                     parts = line.split()
                     if len(parts) >= 3:
-                        edges = parts[2]
-                        print(f"File '{filename}' identified as Matrix Market format.")
-                        print(f"Edges defined in header (entries): {edges}")
-                        return
+                        print(f"Matrix Market format — entries: {parts[2]}")
                     else:
-                        print("Error: Malformed Matrix Market header, could not find size definition.", file=sys.stderr)
-                        return
+                        print("Error: Malformed MTX header.", file=sys.stderr)
+                    return
             else:
-                # General Edge List format: Count lines (skip header comments)
                 count = 0
-
-                # Check if the first line is valid (not empty, not a comment)
                 if first_line.strip() and not first_line.startswith(('#', '%')):
                     count += 1
-
-                # Continue reading the rest of the lines
                 for line in f:
-                    # Skip empty lines and comments
                     if line.strip() and not line.startswith(('#', '%')):
                         count += 1
-
-                print(f"File '{filename}' identified as general edge list format.")
-                print(f"Valid edges counted (lines): {count}")
-
+                print(f"Edge list format — lines: {count}")
     except FileNotFoundError:
         print(f"Error: File '{filename}' not found.", file=sys.stderr)
     except Exception as e:
-        print(f"Error counting edges: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
+
+
+def show_dataset_stats(directory):
+    """Show dataset statistics with Rich terminal visualization."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console = Console()
+
+    nodes_file = os.path.join(directory, "nodes.csv")
+    edges_file = os.path.join(directory, "edges.csv")
+
+    for path in (nodes_file, edges_file):
+        if not os.path.exists(path):
+            console.print(f"[red]Error: {path} not found[/red]")
+            return
+
+    # Read nodes
+    with console.status("[bold cyan]Reading nodes..."):
+        node_count = 0
+        with open(nodes_file, 'r') as f:
+            reader = csv.reader(f)
+            next(reader)  # skip header
+            for _ in reader:
+                node_count += 1
+
+    # Read edges and compute degrees
+    with console.status("[bold cyan]Reading edges..."):
+        degree = Counter()
+        edge_count = 0
+        with open(edges_file, 'r') as f:
+            reader = csv.reader(f)
+            next(reader)
+            for row in reader:
+                src, dst = int(row[0]), int(row[1])
+                degree[src] += 1
+                degree[dst] += 1
+                edge_count += 1
+
+    # Compute stats
+    degrees = list(degree.values())
+    isolated = node_count - len(degree)
+    if isolated > 0:
+        degrees.extend([0] * isolated)
+
+    avg_degree = sum(degrees) / node_count if node_count else 0
+    max_deg = max(degrees) if degrees else 0
+    min_deg = min(degrees) if degrees else 0
+
+    # Stats panel
+    dataset_name = os.path.basename(os.path.abspath(directory))
+    stats = Table(show_header=False, box=None, padding=(0, 2))
+    stats.add_column(style="bold cyan")
+    stats.add_column(style="white")
+    stats.add_row("Nodes", f"{node_count:,}")
+    stats.add_row("Edges", f"{edge_count:,}")
+    stats.add_row("Avg Degree", f"{avg_degree:.2f}")
+    stats.add_row("Max Degree", f"{max_deg:,}")
+    stats.add_row("Min Degree", f"{min_deg:,}")
+
+    console.print()
+    console.print(Panel(stats, title=f"[bold]{dataset_name}[/bold]", border_style="blue"))
+
+    if not degrees:
+        return
+
+    # Degree distribution — log2 buckets
+    buckets = {}
+    for d in degrees:
+        if d == 0:
+            key = (0, 0)
+        else:
+            exp = int(math.log2(d))
+            key = (2 ** exp, 2 ** (exp + 1) - 1)
+        buckets[key] = buckets.get(key, 0) + 1
+
+    sorted_buckets = sorted(buckets.items(), key=lambda x: x[0][0])
+    max_count = max(buckets.values())
+    BAR_WIDTH = 40
+
+    hist = Table(title="Degree Distribution", border_style="blue")
+    hist.add_column("Degree", style="cyan", justify="right")
+    hist.add_column("Count", style="white", justify="right")
+    hist.add_column("Distribution", style="green", no_wrap=True)
+
+    for (lo, hi), count in sorted_buckets:
+        label = f"{lo}" if lo == hi else f"{lo}-{hi}"
+        bar_len = int(count / max_count * BAR_WIDTH)
+        bar = "█" * max(bar_len, 1)
+        pct = count / node_count * 100
+        hist.add_row(label, f"{count:,}", f"{bar} {pct:.1f}%")
+
+    console.print(hist)
 
 
 if __name__ == "__main__":
-    # 1. Create ArgumentParser object
     parser = argparse.ArgumentParser(
-        description="Graph dataset tool: Read first k lines or count graph edges.",
-        epilog="Examples:\n  Preview 10 lines: python script.py my_graph.mtx 10\n  Count edges:      python script.py my_graph.mtx -c",
-        formatter_class=argparse.RawTextHelpFormatter
+        description="Graph dataset preview tool",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
+    sub = parser.add_subparsers(dest="command")
 
-    # 2. Add command line arguments
-    # 'filename' is a positional argument, required
-    parser.add_argument("filename", help="Path to the file to read")
+    # stats
+    p_stats = sub.add_parser("stats", help="Show dataset statistics (nodes, edges, degree distribution)")
+    p_stats.add_argument("directory", help="Path to dataset directory containing nodes.csv and edges.csv")
 
-    # 'k' is an optional positional argument (nargs='?'), ignored if -c is used
-    parser.add_argument("k", type=int, nargs='?', help="Number of lines to read from the head (ignored if -c is used)")
+    # count
+    p_count = sub.add_parser("count", help="Count edges in a graph file")
+    p_count.add_argument("filename", help="Path to the graph file")
 
-    # Add a flag for counting edges
-    parser.add_argument("-c", "--count", action="store_true", help="Count the edges of the graph data (auto-detect mtx or edge list)")
-
-    # 3. Parse arguments
     args = parser.parse_args()
 
-    # 4. Decide which function to execute based on arguments
-    if args.count:
-        # Execute edge counting
+    if args.command == "stats":
+        show_dataset_stats(args.directory)
+    elif args.command == "count":
         count_graph_edges(args.filename)
     else:
-        # Execute reading first k lines
-        read_first_k_lines(args.filename, args.k)
+        parser.print_help()

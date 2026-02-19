@@ -31,6 +31,7 @@ dist/
 # 忽略所有通过脚本下载的数据集
 # !!! 警告: 这些文件非常大，绝对不要提交到 Git 仓库中 !!!
 *.txt
+!requirements.txt
 *.txt.gz
 *.edge
 *.vertex
