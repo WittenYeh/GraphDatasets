@@ -6,8 +6,7 @@ setup: nodes.csv edges.csv
 
 # Convert Yelp dataset to CSV format
 nodes.csv edges.csv:
-	@echo "Converting $(GRAPH_NAME) dataset to CSV format..."
-	@echo "Note: Dataset must be downloaded manually from https://www.yelp.com/dataset/download"
+	@echo "Downloading and converting $(GRAPH_NAME) dataset to CSV format..."
 	python3 download_yelp.py
 	@echo "✓ Dataset ready: nodes.csv and edges.csv"
 
@@ -17,5 +16,5 @@ clean:
 	rm -f nodes.csv edges.csv
 
 realclean: clean
-	rm -f yelp_academic_dataset_*.json
+	rm -f yelp_academic_dataset_*.json Yelp-JSON.zip
 	@echo "✓ All files cleaned"

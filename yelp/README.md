@@ -12,38 +12,23 @@ The Yelp Open Dataset contains data about businesses, reviews, and users from Ye
 - Edges: Reviews (user -> business relationships)
 - Typical size: ~150K businesses, ~2M users, ~8M reviews
 
-## Manual Download Required
-
-This dataset requires manual download:
-
-1. Visit: https://www.yelp.com/dataset/download
-2. Sign up and agree to the Yelp Dataset License
-3. Download the dataset (tar file, ~10GB compressed)
-4. Extract the tar file to this directory
-
-Expected files after extraction:
-- `yelp_academic_dataset_business.json`
-- `yelp_academic_dataset_review.json`
-- `yelp_academic_dataset_user.json`
-- `yelp_academic_dataset_checkin.json` (optional)
-- `yelp_academic_dataset_tip.json` (optional)
-
 ## Usage
 
-### Convert to CSV
-After downloading and extracting the dataset:
+### Download and Convert
+The dataset will be automatically downloaded from Yelp's public URL:
 ```bash
 make
 ```
 
-This will generate:
-- `nodes.csv`: All nodes (businesses and users) with type labels
-- `edges.csv`: All edges (reviews from users to businesses)
+This will:
+1. Download the Yelp-JSON.zip file (~10GB)
+2. Extract the JSON files
+3. Convert to CSV format (nodes.csv and edges.csv)
 
 ### Clean
 ```bash
 make clean      # Remove generated CSV files
-make realclean  # Remove all files including JSON data
+make realclean  # Remove all files including JSON data and zip
 ```
 
 ## Output Format

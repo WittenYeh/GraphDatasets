@@ -55,6 +55,9 @@ ldbc-snb/ldbc-snb-sf*/
 # 忽略 OGB 下载的数据目录
 ogbn-products/ogbn_products_*/
 
+# 忽略 Yelp 下载的文件
+yelp/yelp_academic_dataset_*.json
+
 
 # ===================================================================
 # IDE / Editor Configuration

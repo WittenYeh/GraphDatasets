@@ -7,17 +7,39 @@ The Yelp Open Dataset contains:
 - Businesses (nodes)
 - Users (nodes)
 - Reviews (edges: user -> business)
-
-Dataset must be downloaded manually from:
-https://www.yelp.com/dataset/download
 """
 
 import json
 import os
 import sys
+import urllib.request
+import zipfile
 
-def check_dataset_files(output_dir="."):
-    """Check if Yelp dataset files exist."""
+YELP_DATASET_URL = "https://business.yelp.com/external-assets/files/Yelp-JSON.zip"
+
+def download_dataset(output_dir="."):
+    """Download Yelp dataset if not already present."""
+
+    zip_file = os.path.join(output_dir, "Yelp-JSON.zip")
+
+    # Check if already downloaded
+    if os.path.exists(zip_file):
+        print(f"Dataset archive already exists: {zip_file}")
+        return zip_file
+
+    print(f"Downloading Yelp dataset from {YELP_DATASET_URL}...")
+    print("This may take a while (file size ~10GB)...")
+
+    try:
+        urllib.request.urlretrieve(YELP_DATASET_URL, zip_file)
+        print(f"✓ Downloaded to {zip_file}")
+        return zip_file
+    except Exception as e:
+        print(f"Error downloading dataset: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def extract_dataset(zip_file, output_dir="."):
+    """Extract Yelp dataset from zip file."""
 
     required_files = [
         "yelp_academic_dataset_business.json",
@@ -25,30 +47,20 @@ def check_dataset_files(output_dir="."):
         "yelp_academic_dataset_user.json"
     ]
 
-    missing_files = [f for f in required_files if not os.path.exists(os.path.join(output_dir, f))]
+    # Check if already extracted
+    if all(os.path.exists(os.path.join(output_dir, f)) for f in required_files):
+        print("Dataset files already extracted")
+        return True
 
-    if missing_files:
-        print("=" * 70)
-        print("Yelp Open Dataset - Manual Download Required")
-        print("=" * 70)
-        print()
-        print("Please download the Yelp Open Dataset manually:")
-        print()
-        print("1. Visit: https://www.yelp.com/dataset/download")
-        print("2. Sign up and agree to the terms")
-        print("3. Download the dataset (tar file)")
-        print("4. Extract the tar file to this directory")
-        print("5. Run 'make' again")
-        print()
-        print("Expected files:")
-        for f in required_files:
-            print(f"  - {f}")
-        print()
-        print(f"Missing: {', '.join(missing_files)}")
-        print("=" * 70)
+    print(f"Extracting {zip_file}...")
+    try:
+        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            zip_ref.extractall(output_dir)
+        print("✓ Extraction complete")
+        return True
+    except Exception as e:
+        print(f"Error extracting dataset: {e}", file=sys.stderr)
         sys.exit(1)
-
-    return True
 
 def convert_to_csv(output_dir="."):
     """Convert Yelp JSON files to CSV format."""
@@ -121,8 +133,9 @@ def convert_to_csv(output_dir="."):
 if __name__ == "__main__":
     output_dir = "."
 
-    # Check if dataset files exist
-    check_dataset_files(output_dir)
+    # Download and extract dataset
+    zip_file = download_dataset(output_dir)
+    extract_dataset(zip_file, output_dir)
 
     # Convert to CSV
     convert_to_csv(output_dir)
