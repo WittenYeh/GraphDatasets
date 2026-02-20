@@ -27,13 +27,16 @@ A collection of scripts to download and convert popular graph datasets into a **
 ## 🚀 Quick Start
 
 ```bash
-# Download a specific dataset
-cd soc-LiveJournal1
+# Build all datasets
 make
 
-# Or download multiple datasets
-cd cit-Patents && make
-cd ogbn-products && make
+# Build one or more specific datasets directly
+make ak2010
+make ak2010 belgium_osm soc-LiveJournal1
+
+# Other targets work the same way
+make fetch ak2010 belgium_osm   # download only, no conversion
+make clean ak2010               # clean a specific dataset
 ```
 
 ## 📋 Unified CSV Format

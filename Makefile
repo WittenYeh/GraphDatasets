@@ -9,7 +9,7 @@ SUBDIRS_PROPERTY_GRAPHS = ogbn-products yelp imdb movielens-small movielens
 # Combine all subdirectories
 ALL_SUBDIRS = $(SUBDIRS) $(SUBDIRS_PROPERTY_GRAPHS)
 
-.PHONY: $(GRAPHS)
+.PHONY: all fetch clean realclean recurse $(ALL_SUBDIRS)
 
 #fetches all graphs, extracts and sets up files for tests
 all: recurse
@@ -27,5 +27,6 @@ realclean: recurse
 recurse:
 	for subdir in $(ALL_SUBDIRS); do $(MAKE) -C $$subdir $(MAKECMDGOALS); done
 
-$(GRAPHS):
+# Allow building individual datasets directly: make ak2010 belgium_osm soc-LiveJournal1
+$(ALL_SUBDIRS):
 	$(MAKE) -C $@

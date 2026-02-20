@@ -57,17 +57,34 @@ def test_basic_triangle(tmp_path):
 
 
 def test_node_ids_contiguous_zero_based(tmp_path):
-    """Sparse original IDs (1, 5, 10) must be remapped to 0, 1, 2."""
+    """
+    MTX header declares 10 nodes; only 3 appear in edges.
+    All 10 nodes (including isolated ones) must appear in nodes.csv as 0..9.
+    """
     mtx = tmp_path / "sparse.mtx"
     _write_mtx(str(mtx), [(1, 5), (5, 10)], num_nodes=10)
     parse_mtx_to_csv(str(mtx), str(tmp_path))
 
     nodes = _read_csv(str(tmp_path / "nodes.csv"))
     node_ids = sorted(int(r["node_id"]) for r in nodes)
-    assert node_ids == list(range(len(node_ids))), "Node IDs must be contiguous 0-based"
+    assert node_ids == list(range(10)), "All 10 nodes (including isolated) must be present"
 
 
-def test_self_loops(tmp_path):
+def test_isolated_nodes_preserved(tmp_path):
+    """
+    MTX header declares 5 nodes; only nodes 1,2,3,4 appear in edges.
+    Node 5 is isolated (degree-0) and must still appear in nodes.csv.
+    """
+    mtx = tmp_path / "isolated.mtx"
+    _write_mtx(str(mtx), [(1, 2), (4, 3)], num_nodes=5)
+    parse_mtx_to_csv(str(mtx), str(tmp_path))
+
+    nodes = _read_csv(str(tmp_path / "nodes.csv"))
+    node_ids = sorted(int(r["node_id"]) for r in nodes)
+    assert node_ids == [0, 1, 2, 3, 4], "Isolated node must not be dropped"
+
+
+
     """Self-loops (src == dst) should be preserved."""
     mtx = tmp_path / "loop.mtx"
     _write_mtx(str(mtx), [(1, 1), (2, 3)])
@@ -117,14 +134,14 @@ def test_large_dataset_multi_chunk(tmp_path):
 
     parse_mtx_to_csv(str(mtx), str(tmp_path))
 
-    # All nodes referenced in edges
-    referenced = {s for s, _ in raw_edges} | {d for _, d in raw_edges}
-    expected_node_count = len(referenced)
+    # New implementation uses shape[0] as authoritative node count,
+    # so all num_nodes nodes are present (including any isolated ones).
+    expected_node_count = num_nodes
 
     nodes = _read_csv(str(tmp_path / "nodes.csv"))
     edges = _read_csv(str(tmp_path / "edges.csv"))
 
-    # Node count matches unique referenced nodes
+    # Node count matches header declaration
     assert len(nodes) == expected_node_count
 
     # Node IDs are contiguous 0-based
@@ -204,17 +221,13 @@ def test_livejournal_structure():
 
     # --- Load MTX via fmm (fast, parallel, 0-indexed) ---
     _, declared_edges = _parse_mtx_header(MTX_PATH)
-    (_, (rows_orig, cols_orig)), _ = fmm.read_coo(MTX_PATH, parallelism=8)
+    (_, (rows_orig, cols_orig)), shape = fmm.read_coo(MTX_PATH, parallelism=8)
 
-    # Build id_map (same logic as mtx2csv.py; fmm returns 0-indexed IDs)
-    unique_ids = np.unique(np.concatenate([rows_orig, cols_orig]))
-    id_map = np.empty(int(unique_ids.max()) + 1, dtype=np.int64)
-    id_map[unique_ids] = np.arange(len(unique_ids), dtype=np.int64)
-    expected_node_count = len(unique_ids)
-
-    # Compute remapped edges in memory (no CSV re-read needed)
-    src_out = id_map[rows_orig]
-    dst_out = id_map[cols_orig]
+    # New implementation uses shape[0] as authoritative node count (preserves isolated nodes)
+    expected_node_count = shape[0]
+    # fmm returns 0-indexed IDs; new mtx2csv.py uses them directly without remapping
+    src_out = rows_orig
+    dst_out = cols_orig
 
     # 1. Edge count — fast binary line count minus header
     edge_line_count = _fast_line_count(edges_file) - 1
@@ -236,13 +249,13 @@ def test_livejournal_structure():
     assert int(src_out.min()) >= 0 and int(src_out.max()) < expected_node_count
     assert int(dst_out.min()) >= 0 and int(dst_out.max()) < expected_node_count
 
-    # 5. Out-degree distribution preserved (log2-bucket histogram)
-    #    Remapping is a bijection on node IDs, so bincount values are identical
-    #    up to reordering — compare sorted degree sequences instead of histograms.
-    orig_deg = np.bincount(rows_orig)
-    remapped_deg = np.bincount(src_out)
-    assert np.array_equal(np.sort(orig_deg), np.sort(remapped_deg)), \
-        "Out-degree multiset changed after remapping"
+    # 5. Out-degree distribution preserved
+    #    Since new mtx2csv.py uses fmm's 0-indexed IDs directly (no remapping),
+    #    src_out == rows_orig, so degree sequences are identical by construction.
+    orig_deg = np.bincount(rows_orig, minlength=expected_node_count)
+    remapped_deg = np.bincount(src_out, minlength=expected_node_count)
+    assert np.array_equal(orig_deg, remapped_deg), \
+        "Out-degree sequence changed after conversion"
 
     # 6. Random sample of 500 edges from the numpy arrays (no file re-read)
     rng = random.Random(42)
