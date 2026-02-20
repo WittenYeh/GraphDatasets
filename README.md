@@ -98,6 +98,7 @@ src,dst,weight
 - `germany_osm` - Germany OpenStreetMap
 - `europe_osm` - Europe OpenStreetMap
 - `asia_osm` - Asia OpenStreetMap
+- `osm-road-networks` - Any city via OpenStreetMap (osmnx), with road attributes (lat/lon, speed, travel time, highway type, etc.)
 
 ### Web Graphs
 - `uk-2002` - UK web graph (2002)
@@ -175,7 +176,33 @@ std::vector<Edge> read_edges(const std::string& filename) {
 - `mtx2csv.py` - Convert Matrix Market (.mtx) to CSV
 - `ogbn-products/` - OGB dataset converter
 - `yelp/` - Yelp dataset converter
+- `osm-road-networks/` - OSM road network downloader (osmnx)
 - `preview_graph.py` - Preview graph statistics
+
+### OSM Road Networks
+
+Download any city's road network using [osmnx](https://osmnx.readthedocs.io/):
+
+```bash
+# Default city (Pasadena, CA)
+make osm-road-networks
+
+# Custom city
+make -C osm-road-networks PLACE="Beijing, China"
+make -C osm-road-networks PLACE="Tokyo, Japan"
+```
+
+Output per city (in a subdirectory named after the place):
+
+```
+osm-road-networks/
+  pasadena_california_usa/
+    nodes.csv   # node_id, lat, lon
+    edges.csv   # src, dst, length, speed_kph, travel_time, name, highway, oneway, maxspeed, lanes
+  beijing_china/
+    nodes.csv
+    edges.csv
+```
 
 ## 📖 Format Details
 

@@ -2,3 +2,4 @@ tqdm
 ujson
 rich
 fast-matrix-market
+osmnx

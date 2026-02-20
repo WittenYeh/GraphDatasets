@@ -6,8 +6,10 @@ SUBDIRS = ak2010 belgium_osm delaunay_n13 delaunay_n21 delaunay_n24 coAuthorsDBL
 
 SUBDIRS_PROPERTY_GRAPHS = ogbn-products yelp imdb movielens-small movielens
 
+SUBDIRS_OSM = osm-road-networks
+
 # Combine all subdirectories
-ALL_SUBDIRS = $(SUBDIRS) $(SUBDIRS_PROPERTY_GRAPHS)
+ALL_SUBDIRS = $(SUBDIRS) $(SUBDIRS_PROPERTY_GRAPHS) $(SUBDIRS_OSM)
 
 .PHONY: all fetch clean realclean recurse $(ALL_SUBDIRS)
 
