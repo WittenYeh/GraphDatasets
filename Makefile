@@ -4,7 +4,7 @@
 #Each graph lives in its own directory
 SUBDIRS = ak2010 belgium_osm delaunay_n13 delaunay_n21 delaunay_n24 coAuthorsDBLP kron_g500-logn21 soc-LiveJournal1 webbase-1M europe_osm road_usa cit-Patents soc-orkut indochina-2004 hollywood-2009 roadNet-CA
 
-SUBDIRS_PROPERTY_GRAPHS = ogbn-products yelp imdb
+SUBDIRS_PROPERTY_GRAPHS = ogbn-products yelp imdb movielens-small movielens
 
 # Combine all subdirectories
 ALL_SUBDIRS = $(SUBDIRS) $(SUBDIRS_PROPERTY_GRAPHS)
