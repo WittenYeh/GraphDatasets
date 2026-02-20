@@ -27,8 +27,8 @@ def slugify(name: str) -> str:
     return name
 
 
-def download_and_convert(place: str, output_dir: str) -> None:
-    city_slug = slugify(place)
+def download_and_convert(place: str, output_dir: str, name: str = None) -> None:
+    city_slug = name if name else slugify(place)
     city_dir = os.path.join(output_dir, city_slug)
     os.makedirs(city_dir, exist_ok=True)
 
@@ -99,9 +99,14 @@ def main():
         default=".",
         help="Output directory (a subdirectory per place will be created)",
     )
+    parser.add_argument(
+        "--name",
+        default=None,
+        help="Custom output subdirectory name (default: slugified place name)",
+    )
     args = parser.parse_args()
 
-    download_and_convert(args.place, args.output_dir)
+    download_and_convert(args.place, args.output_dir, args.name)
 
 
 if __name__ == "__main__":
