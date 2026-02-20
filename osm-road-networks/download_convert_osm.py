@@ -3,9 +3,9 @@
 Download and convert an OSM road network to CSV format using osmnx.
 
 Usage:
-    python3 download_convert_osm.py [--place "Pasadena, California, USA"] [--output-dir .]
+    python3 download_convert_osm.py [--place "Singapore"] [--output-dir .]
 
-Outputs per city (in a subdirectory named after the place):
+Outputs per place (in a subdirectory named after the place):
     nodes.csv  - node_id, lat, lon
     edges.csv  - src, dst, length, speed_kph, travel_time, name, highway, oneway, maxspeed, lanes
 """
@@ -91,13 +91,13 @@ def main():
     parser = argparse.ArgumentParser(description="Download OSM road network and convert to CSV")
     parser.add_argument(
         "--place",
-        default="Pasadena, California, USA",
-        help='Place name for osmnx (default: "Pasadena, California, USA")',
+        default="Singapore",
+        help='Place name for osmnx (default: "Singapore")',
     )
     parser.add_argument(
         "--output-dir",
         default=".",
-        help="Output directory (a subdirectory per city will be created)",
+        help="Output directory (a subdirectory per place will be created)",
     )
     args = parser.parse_args()
 

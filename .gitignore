@@ -68,6 +68,9 @@ yelp/*.pdf
 movielens-small/ml-latest-small/
 movielens/ml-latest/
 
+# OSM road network downloaded city directories
+osm-road-networks/*/
+
 # ===================================================================
 # IDE / Editor Configuration
 # ===================================================================
