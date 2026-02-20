@@ -113,6 +113,9 @@ src,dst,weight
 ### Property Graphs
 - `ogbn-products` - Amazon product co-purchase network (OGB)
 - `yelp` - Yelp user-business review network (bipartite)
+- `imdb` - IMDB title-person bipartite network (movies, shows, cast & crew)
+- `movielens-small` - MovieLens small rating dataset (~100K ratings)
+- `movielens` - MovieLens full rating dataset (~33M ratings)
 - `ldbc-snb` - LDBC Social Network Benchmark
 
 ### Other

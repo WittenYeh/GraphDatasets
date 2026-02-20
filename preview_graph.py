@@ -14,7 +14,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 NUM_WORKERS = 64
-CHUNK_SIZE = 4 * 1024 * 1024  # 4MB per chunk
+CHUNK_SIZE = 1 * 1024 * 1024  # 1MB per chunk
 
 
 def _file_chunk_ranges(filepath):
@@ -95,6 +95,14 @@ def show_dataset_stats(directory):
             console.print(f"[red]Error: {path} not found[/red]")
             return
 
+    # Read CSV headers
+    def _read_header(filepath):
+        with open(filepath, 'r') as f:
+            return f.readline().strip()
+
+    nodes_header = _read_header(nodes_file)
+    edges_header = _read_header(edges_file)
+
     # Read nodes (count lines in parallel)
     node_ranges = _file_chunk_ranges(nodes_file)
     node_counts = process_map(_count_lines_chunk, node_ranges,
@@ -139,6 +147,8 @@ def show_dataset_stats(directory):
     stats.add_column(style="bold cyan")
     stats.add_column(style="white")
     stats.add_row("File Size", f"{_human_size(total_size)} (nodes: {_human_size(nodes_size)}, edges: {_human_size(edges_size)})")
+    stats.add_row("Nodes Header", nodes_header)
+    stats.add_row("Edges Header", edges_header)
     stats.add_row("Nodes", f"{node_count:,}")
     stats.add_row("Edges", f"{edge_count:,}")
     stats.add_row("Avg Degree", f"{avg_degree:.2f}")

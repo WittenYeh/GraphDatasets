@@ -48,7 +48,7 @@ def convert_to_csv(data_dir, output_dir="."):
             mid = int(row['movieId'])
             user_ids.add(uid)
             movie_ids.add(mid)
-            edge_pairs.append((uid, mid))
+            edge_pairs.append((uid, mid, row['rating'], row['timestamp']))
 
     print(f"  Users: {len(user_ids):,}")
     print(f"  Movies: {len(movie_ids):,}")
@@ -70,7 +70,7 @@ def convert_to_csv(data_dir, output_dir="."):
 
     # Count ratings per user for node property
     user_rating_count = Counter()
-    for uid, _ in edge_pairs:
+    for uid, _, _, _ in edge_pairs:
         user_rating_count[uid] += 1
 
     nodes_file = os.path.join(output_dir, "nodes.csv")
@@ -101,10 +101,10 @@ def convert_to_csv(data_dir, output_dir="."):
 
     with open(edges_file, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["src", "dst"])
+        writer.writerow(["src", "dst", "rating", "timestamp"])
 
-        for uid, mid in tqdm(edge_pairs, desc="Writing edges", unit="edges"):
-            batch.append([id_map[('user', uid)], id_map[('movie', mid)]])
+        for uid, mid, rating, timestamp in tqdm(edge_pairs, desc="Writing edges", unit="edges"):
+            batch.append([id_map[('user', uid)], id_map[('movie', mid)], rating, timestamp])
             if len(batch) >= BATCH_SIZE:
                 writer.writerows(batch)
                 batch.clear()

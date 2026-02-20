@@ -2,63 +2,88 @@
 """
 Convert Matrix Market (MTX) format to CSV format.
 Generates two files: nodes.csv and edges.csv
+
+Uses fast_matrix_market for fast parallel MTX reading,
+and process_map for parallel CSV writing.
 """
 
 import sys
 import os
 import csv
+import numpy as np
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
+
+import fast_matrix_market as fmm
+
+NUM_WORKERS = 8
+WRITE_CHUNK = 500_000  # rows per chunk for parallel CSV writing
+
+
+def _write_edges_chunk(args):
+    """Write a chunk of edges to a temp file, return the temp file path."""
+    edges_file, chunk_idx, src_chunk, dst_chunk = args
+    tmp_path = f"{edges_file}.part{chunk_idx}"
+    with open(tmp_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(zip(src_chunk.tolist(), dst_chunk.tolist()))
+    return tmp_path
+
 
 def parse_mtx_to_csv(mtx_file, output_dir="."):
-    """
-    Parse MTX file and convert to nodes.csv and edges.csv.
-    """
     if not os.path.exists(mtx_file):
         print(f"Error: File {mtx_file} not found", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Parsing {mtx_file}...")
+    print(f"Reading {mtx_file}...")
+    (_, (rows, cols)), shape = fmm.read_coo(mtx_file, parallelism=NUM_WORKERS)
+    print(f"  Matrix shape: {shape[0]} x {shape[1]}, entries: {len(rows):,}")
 
-    raw_nodes = set()
-    raw_edges = []
-
-    with open(mtx_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('%'):
-                num_rows, num_cols, num_entries = map(int, line.split())
-                print(f"  Matrix size: {num_rows} x {num_cols}, entries: {num_entries}")
-                break
-
-        # Read edge data (keep original 1-indexed IDs for now)
-        for line in tqdm(f, total=num_entries, desc="Reading edges", unit="edges"):
-            parts = line.split()
-            if len(parts) >= 2:
-                src, dst = int(parts[0]), int(parts[1])
-                raw_nodes.update((src, dst))
-                raw_edges.append((src, dst))
-
-    # Build contiguous 0-based ID mapping
-    id_map = {old_id: new_id for new_id, old_id in enumerate(sorted(raw_nodes))}
+    # Build contiguous 0-based ID mapping from 1-indexed MTX IDs
+    unique_ids = np.unique(np.concatenate([rows, cols]))
+    id_map = np.empty(int(unique_ids.max()) + 1, dtype=np.int64)
+    id_map[unique_ids] = np.arange(len(unique_ids), dtype=np.int64)
+    num_nodes = len(unique_ids)
 
     nodes_file = os.path.join(output_dir, "nodes.csv")
     print(f"Writing nodes to {nodes_file}...")
     with open(nodes_file, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["node_id"])
-        writer.writerows([[new_id] for new_id in tqdm(range(len(id_map)), desc="Writing nodes", unit="nodes")])
+        writer.writerows(
+            tqdm(([i] for i in range(num_nodes)), total=num_nodes, desc="Writing nodes", unit="nodes")
+        )
 
+    # Remap edge IDs
+    src_mapped = id_map[rows]
+    dst_mapped = id_map[cols]
+
+    # Split into chunks for parallel writing
+    num_edges = len(src_mapped)
+    chunk_args = []
     edges_file = os.path.join(output_dir, "edges.csv")
-    print(f"Writing edges to {edges_file}...")
-    with open(edges_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(["src", "dst"])
-        writer.writerows(tqdm([(id_map[s], id_map[d]) for s, d in raw_edges], desc="Writing edges", unit="edges"))
+    for i, start in enumerate(range(0, num_edges, WRITE_CHUNK)):
+        end = min(start + WRITE_CHUNK, num_edges)
+        chunk_args.append((edges_file, i, src_mapped[start:end], dst_mapped[start:end]))
 
-    print(f"✓ Conversion complete")
-    print(f"  Nodes: {len(id_map):,}")
-    print(f"  Edges: {len(raw_edges):,}")
-    print(f"  Output files:\n    - {nodes_file}\n    - {edges_file}")
+    print(f"Writing edges to {edges_file}...")
+    tmp_files = process_map(
+        _write_edges_chunk, chunk_args,
+        max_workers=NUM_WORKERS, desc="Writing edges", unit="chunks"
+    )
+
+    # Concatenate temp files into final edges.csv
+    with open(edges_file, 'w', newline='') as f_out:
+        f_out.write("src,dst\n")
+        for tmp_path in tmp_files:
+            with open(tmp_path, 'r') as f_in:
+                f_out.write(f_in.read())
+            os.remove(tmp_path)
+
+    print(f"Conversion complete")
+    print(f"  Nodes: {num_nodes:,}")
+    print(f"  Edges: {num_edges:,}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -66,7 +91,5 @@ if __name__ == "__main__":
         sys.exit(1)
 
     mtx_path = sys.argv[1]
-    # Default to the current directory if os.path.dirname returns an empty string
     out_dir = os.path.dirname(mtx_path) or "."
-
     parse_mtx_to_csv(mtx_path, out_dir)

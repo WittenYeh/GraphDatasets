@@ -131,7 +131,7 @@ def convert_to_csv(output_dir="."):
 
     with open(edges_file, 'w', newline='') as f_edges:
         writer = csv.writer(f_edges)
-        writer.writerow(["src", "dst"])
+        writer.writerow(["src", "dst", "stars", "date", "useful", "funny", "cool"])
 
         with open(review_file, 'r', encoding='utf-8') as rf:
             for line in tqdm(rf, desc="Writing edges", unit="reviews"):
@@ -140,7 +140,14 @@ def convert_to_csv(output_dir="."):
                 b_id = review['business_id']
 
                 if u_id in id_map and b_id in id_map:
-                    batch.append([id_map[u_id], id_map[b_id]])
+                    batch.append([
+                        id_map[u_id], id_map[b_id],
+                        review.get('stars', ''),
+                        review.get('date', ''),
+                        review.get('useful', ''),
+                        review.get('funny', ''),
+                        review.get('cool', ''),
+                    ])
                     edge_count += 1
 
                     # Execute disk write when batch size is reached

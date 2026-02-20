@@ -8,18 +8,25 @@ all: setup
 
 setup: nodes.csv edges.csv
 
-# Download .tsv.gz files
+# Download .tsv.gz files (skip if already present)
 %.tsv.gz:
-	wget -N $(IMDB_URL)/$@
+	@if [ ! -f $@ ]; then \
+		echo "Downloading $@..."; \
+		wget -q --show-progress $(IMDB_URL)/$@; \
+	else \
+		echo "$@ already exists, skipping download"; \
+	fi
 
-# Decompress .tsv.gz -> .tsv
+# Decompress .tsv.gz -> .tsv, then delete the archive
 %.tsv: %.tsv.gz
+	@echo "Extracting $<..."
 	gunzip -k $<
+	rm -f $<
 
 # Convert to graph CSV
 nodes.csv edges.csv: $(TSV_FILES)
 	@echo "Converting $(GRAPH_NAME) dataset to CSV format..."
-	python3 download_imdb.py
+	python3 convert_imdb.py
 	@echo "Dataset ready: nodes.csv and edges.csv"
 
 fetch: $(TSV_GZ_FILES)
