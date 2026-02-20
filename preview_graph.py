@@ -3,45 +3,80 @@
 Graph dataset preview tool.
 
 Usage:
-  python preview_graph.py stats <directory>   Show dataset statistics with Rich visualization
-  python preview_graph.py count <file>        Count edges in a graph file
+  python preview_graph.py <directory>   Show dataset statistics with Rich visualization
 """
 
 import argparse
-import csv
 import math
 import os
-import sys
 from collections import Counter
+from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
+
+NUM_WORKERS = 64
+CHUNK_SIZE = 4 * 1024 * 1024  # 4MB per chunk
 
 
-def count_graph_edges(filename):
-    """Count edges in a graph file (MTX header or line count)."""
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            first_line = f.readline()
-            if first_line.startswith('%%MatrixMarket'):
-                for line in f:
-                    if line.startswith('%'):
-                        continue
-                    parts = line.split()
-                    if len(parts) >= 3:
-                        print(f"Matrix Market format — entries: {parts[2]}")
-                    else:
-                        print("Error: Malformed MTX header.", file=sys.stderr)
-                    return
-            else:
-                count = 0
-                if first_line.strip() and not first_line.startswith(('#', '%')):
-                    count += 1
-                for line in f:
-                    if line.strip() and not line.startswith(('#', '%')):
-                        count += 1
-                print(f"Edge list format — lines: {count}")
-    except FileNotFoundError:
-        print(f"Error: File '{filename}' not found.", file=sys.stderr)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+def _file_chunk_ranges(filepath):
+    """Split a file into byte ranges aligned to line boundaries.
+    Returns list of (filepath, start, end) tuples."""
+    file_size = os.path.getsize(filepath)
+    if file_size == 0:
+        return []
+    ranges = []
+    with open(filepath, 'rb') as f:
+        f.readline()  # skip header
+        data_start = f.tell()
+        start = data_start
+        while start < file_size:
+            end = min(start + CHUNK_SIZE, file_size)
+            if end < file_size:
+                f.seek(end)
+                f.readline()  # align to next line boundary
+                end = f.tell()
+            ranges.append((filepath, start, end))
+            start = end
+    return ranges
+
+
+def _count_lines_chunk(args):
+    """Count lines in a byte range of a file."""
+    filepath, start, end = args
+    count = 0
+    with open(filepath, 'rb') as f:
+        f.seek(start)
+        remaining = end - start
+        while remaining > 0:
+            chunk = f.read(min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            count += chunk.count(b'\n')
+            remaining -= len(chunk)
+    return count
+
+
+def _read_edges_chunk(args):
+    """Read edges in a byte range and return (count, degree_counter)."""
+    filepath, start, end = args
+    degree = Counter()
+    count = 0
+    with open(filepath, 'r') as f:
+        f.seek(start)
+        pos = start
+        while pos < end:
+            line = f.readline()
+            if not line:
+                break
+            pos = f.tell()
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(',')
+            src, dst = int(parts[0]), int(parts[1])
+            degree[src] += 1
+            degree[dst] += 1
+            count += 1
+    return count, degree
 
 
 def show_dataset_stats(directory):
@@ -60,27 +95,21 @@ def show_dataset_stats(directory):
             console.print(f"[red]Error: {path} not found[/red]")
             return
 
-    # Read nodes
-    with console.status("[bold cyan]Reading nodes..."):
-        node_count = 0
-        with open(nodes_file, 'r') as f:
-            reader = csv.reader(f)
-            next(reader)  # skip header
-            for _ in reader:
-                node_count += 1
+    # Read nodes (count lines in parallel)
+    node_ranges = _file_chunk_ranges(nodes_file)
+    node_counts = process_map(_count_lines_chunk, node_ranges,
+                              max_workers=NUM_WORKERS, desc="Reading nodes")
+    node_count = sum(node_counts)
 
-    # Read edges and compute degrees
-    with console.status("[bold cyan]Reading edges..."):
-        degree = Counter()
-        edge_count = 0
-        with open(edges_file, 'r') as f:
-            reader = csv.reader(f)
-            next(reader)
-            for row in reader:
-                src, dst = int(row[0]), int(row[1])
-                degree[src] += 1
-                degree[dst] += 1
-                edge_count += 1
+    # Read edges (parse and compute degrees in parallel — multiprocess to bypass GIL)
+    edge_ranges = _file_chunk_ranges(edges_file)
+    edge_results = process_map(_read_edges_chunk, edge_ranges,
+                               max_workers=NUM_WORKERS, desc="Reading edges")
+    edge_count = 0
+    degree = Counter()
+    for count, deg in tqdm(edge_results, desc="Merging degrees", unit="chunks"):
+        edge_count += count
+        degree += deg
 
     # Compute stats
     degrees = list(degree.values())
@@ -92,11 +121,24 @@ def show_dataset_stats(directory):
     max_deg = max(degrees) if degrees else 0
     min_deg = min(degrees) if degrees else 0
 
+    # File sizes
+    def _human_size(size):
+        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} PB"
+
+    nodes_size = os.path.getsize(nodes_file)
+    edges_size = os.path.getsize(edges_file)
+    total_size = nodes_size + edges_size
+
     # Stats panel
     dataset_name = os.path.basename(os.path.abspath(directory))
     stats = Table(show_header=False, box=None, padding=(0, 2))
     stats.add_column(style="bold cyan")
     stats.add_column(style="white")
+    stats.add_row("File Size", f"{_human_size(total_size)} (nodes: {_human_size(nodes_size)}, edges: {_human_size(edges_size)})")
     stats.add_row("Nodes", f"{node_count:,}")
     stats.add_row("Edges", f"{edge_count:,}")
     stats.add_row("Avg Degree", f"{avg_degree:.2f}")
@@ -133,7 +175,7 @@ def show_dataset_stats(directory):
         bar_len = int(count / max_count * BAR_WIDTH)
         bar = "█" * max(bar_len, 1)
         pct = count / node_count * 100
-        hist.add_row(label, f"{count:,}", f"{bar} {pct:.1f}%")
+        hist.add_row(label, f"{count:,}", f"{bar} {pct:.5f}%")
 
     console.print(hist)
 
@@ -141,23 +183,8 @@ def show_dataset_stats(directory):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Graph dataset preview tool",
-        formatter_class=argparse.RawTextHelpFormatter,
     )
-    sub = parser.add_subparsers(dest="command")
-
-    # stats
-    p_stats = sub.add_parser("stats", help="Show dataset statistics (nodes, edges, degree distribution)")
-    p_stats.add_argument("directory", help="Path to dataset directory containing nodes.csv and edges.csv")
-
-    # count
-    p_count = sub.add_parser("count", help="Count edges in a graph file")
-    p_count.add_argument("filename", help="Path to the graph file")
+    parser.add_argument("directory", help="Path to dataset directory containing nodes.csv and edges.csv")
 
     args = parser.parse_args()
-
-    if args.command == "stats":
-        show_dataset_stats(args.directory)
-    elif args.command == "count":
-        count_graph_edges(args.filename)
-    else:
-        parser.print_help()
+    show_dataset_stats(args.directory)
