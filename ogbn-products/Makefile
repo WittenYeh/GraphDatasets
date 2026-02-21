@@ -19,7 +19,7 @@ $(OGB_DATA_DIR):
 nodes.csv edges.csv: $(OGB_DATA_DIR)
 	@echo "Converting $(GRAPH_NAME) dataset to CSV format..."
 	python3 convert_ogb.py
-	@echo "Dataset ready: nodes.csv and edges.csv"
+	@echo "Dataset ready: nodes.csv, edges.csv, and type_meta.json"
 
 fetch: $(OGB_DATA_DIR)
 

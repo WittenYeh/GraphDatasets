@@ -8,7 +8,7 @@ setup: nodes.csv edges.csv
 nodes.csv edges.csv:
 	@echo "Downloading and converting $(GRAPH_NAME) dataset to CSV format..."
 	python3 download_yelp.py
-	@echo "✓ Dataset ready: nodes.csv and edges.csv"
+	@echo "✓ Dataset ready: nodes.csv, edges.csv, and type_meta.json"
 
 fetch: nodes.csv edges.csv
 

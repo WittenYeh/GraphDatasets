@@ -17,7 +17,7 @@ $(DATA_DIR): $(ZIP_FILE)
 nodes.csv edges.csv: $(DATA_DIR)
 	@echo "Converting $(GRAPH_NAME) dataset to CSV format..."
 	python3 $(CONVERT_SCRIPT) $(DATA_DIR)
-	@echo "Dataset ready: nodes.csv and edges.csv"
+	@echo "Dataset ready: nodes.csv, edges.csv, and type_meta.json"
 
 fetch: $(ZIP_FILE)
 

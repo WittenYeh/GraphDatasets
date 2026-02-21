@@ -27,7 +27,7 @@ setup: nodes.csv edges.csv
 nodes.csv edges.csv: $(TSV_FILES)
 	@echo "Converting $(GRAPH_NAME) dataset to CSV format..."
 	python3 convert_imdb.py
-	@echo "Dataset ready: nodes.csv and edges.csv"
+	@echo "Dataset ready: nodes.csv, edges.csv, and type_meta.json"
 
 fetch: $(TSV_GZ_FILES)
 
