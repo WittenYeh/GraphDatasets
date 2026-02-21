@@ -1,0 +1,12 @@
+{
+  "node_properties": {
+    "type": "string",
+    "name": "string",
+    "genres": "string",
+    "rating_count": "double"
+  },
+  "edge_properties": {
+    "rating": "double",
+    "timestamp": "long"
+  }
+}

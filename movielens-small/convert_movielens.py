@@ -10,10 +10,15 @@ Graph model (bipartite):
 """
 
 import csv
+import json
 import os
 import sys
 from collections import Counter
 from tqdm import tqdm
+
+# Import type inference from parent directory
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from type_inference import generate_type_meta
 
 
 def count_lines(filepath):
@@ -25,6 +30,23 @@ def count_lines(filepath):
 
 def convert_to_csv(data_dir, output_dir="."):
     """Convert MovieLens CSV files to nodes.csv and edges.csv."""
+
+    # Check what files are missing
+    nodes_file = os.path.join(output_dir, "nodes.csv")
+    edges_file = os.path.join(output_dir, "edges.csv")
+    type_meta_path = os.path.join(output_dir, "type_meta.json")
+
+    # If only type_meta is missing and CSVs exist, just generate type_meta
+    if os.path.exists(nodes_file) and os.path.exists(edges_file) and not os.path.exists(type_meta_path):
+        print(f"CSVs exist, generating type_meta.json...")
+        generate_type_meta(nodes_file, edges_file, type_meta_path)
+        print(f"type_meta.json generated successfully")
+        return
+
+    # If CSVs exist, skip conversion
+    if os.path.exists(nodes_file) and os.path.exists(edges_file):
+        print(f"CSVs already exist, skipping conversion")
+        return
 
     ratings_file = os.path.join(data_dir, "ratings.csv")
     movies_file = os.path.join(data_dir, "movies.csv")
@@ -117,6 +139,12 @@ def convert_to_csv(data_dir, output_dir="."):
     print(f"  Users: {len(user_ids):,}")
     print(f"  Total nodes: {total_nodes:,}")
     print(f"  Edges: {len(edge_pairs):,}")
+
+    # Generate type_meta.json
+    nodes_csv = os.path.join(output_dir, "nodes.csv")
+    edges_csv = os.path.join(output_dir, "edges.csv")
+    type_meta_path = os.path.join(output_dir, "type_meta.json")
+    generate_type_meta(nodes_csv, edges_csv, type_meta_path)
 
 
 if __name__ == "__main__":

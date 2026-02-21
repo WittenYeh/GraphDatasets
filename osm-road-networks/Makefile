@@ -18,16 +18,16 @@ PLACE_DIR  := $(if $(OUTPUT_DIR),$(OUTPUT_DIR),$(PLACE_SLUG))
 
 all: setup
 
-setup: $(PLACE_DIR)/nodes.csv $(PLACE_DIR)/edges.csv
+setup: $(PLACE_DIR)/nodes.csv $(PLACE_DIR)/edges.csv $(PLACE_DIR)/type_meta.json
 
-$(PLACE_DIR)/nodes.csv $(PLACE_DIR)/edges.csv:
+$(PLACE_DIR)/nodes.csv $(PLACE_DIR)/edges.csv $(PLACE_DIR)/type_meta.json:
 	python3 download_convert_osm.py --place "$(PLACE)" --output-dir . --name "$(PLACE_DIR)"
 
 fetch: setup
 
 clean:
 	@if [ -d "$(PLACE_DIR)" ]; then \
-		rm -f "$(PLACE_DIR)/nodes.csv" "$(PLACE_DIR)/edges.csv"; \
+		rm -f "$(PLACE_DIR)/nodes.csv" "$(PLACE_DIR)/edges.csv" "$(PLACE_DIR)/type_meta.json"; \
 		echo "Cleaned: $(PLACE_DIR)/"; \
 	fi
 

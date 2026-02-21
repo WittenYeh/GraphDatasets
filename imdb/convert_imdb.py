@@ -11,9 +11,14 @@ Graph model (bipartite):
 """
 
 import os
+import sys
 import pandas as pd
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
+
+# Import type inference from parent directory
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from type_inference import generate_type_meta
 
 NUM_WORKERS = 8
 CHUNK_ROWS = 500_000
@@ -39,6 +44,23 @@ def _scan_principals_chunk(args):
 
 def convert_to_csv(output_dir="."):
     """Convert IMDB TSV files to nodes.csv and edges.csv."""
+
+    # Check what files are missing
+    nodes_file = os.path.join(output_dir, "nodes.csv")
+    edges_file = os.path.join(output_dir, "edges.csv")
+    type_meta_path = os.path.join(output_dir, "type_meta.json")
+
+    # If only type_meta is missing and CSVs exist, just generate type_meta
+    if os.path.exists(nodes_file) and os.path.exists(edges_file) and not os.path.exists(type_meta_path):
+        print(f"CSVs exist, generating type_meta.json...")
+        generate_type_meta(nodes_file, edges_file, type_meta_path)
+        print(f"type_meta.json generated successfully")
+        return
+
+    # If CSVs exist, skip conversion
+    if os.path.exists(nodes_file) and os.path.exists(edges_file):
+        print(f"CSVs already exist, skipping conversion")
+        return
 
     principals_path = os.path.join(output_dir, "title.principals.tsv")
     ratings_path = os.path.join(output_dir, "title.ratings.tsv")
@@ -128,6 +150,10 @@ def convert_to_csv(output_dir="."):
     print(f"  People: {people_count:,}")
     print(f"  Total nodes: {title_count + people_count:,}")
     print(f"  Edges: {edge_count:,}")
+
+    # Generate type_meta.json
+    type_meta_path = os.path.join(output_dir, "type_meta.json")
+    generate_type_meta(nodes_file, edges_file, type_meta_path)
 
 
 if __name__ == "__main__":

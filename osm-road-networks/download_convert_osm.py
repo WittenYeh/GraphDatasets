@@ -18,6 +18,10 @@ import csv
 import osmnx as ox
 from tqdm import tqdm
 
+# Import type inference from parent directory
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from type_inference import generate_type_meta
+
 
 def slugify(name: str) -> str:
     """Convert a place name to a safe directory name."""
@@ -34,7 +38,16 @@ def download_and_convert(place: str, output_dir: str, name: str = None) -> None:
 
     nodes_file = os.path.join(city_dir, "nodes.csv")
     edges_file = os.path.join(city_dir, "edges.csv")
+    type_meta_path = os.path.join(city_dir, "type_meta.json")
 
+    # If only type_meta is missing and CSVs exist, just generate type_meta
+    if os.path.exists(nodes_file) and os.path.exists(edges_file) and not os.path.exists(type_meta_path):
+        print(f"CSVs exist, generating type_meta.json...")
+        generate_type_meta(nodes_file, edges_file, type_meta_path)
+        print(f"type_meta.json generated successfully")
+        return
+
+    # If CSVs exist, skip download and conversion
     if os.path.exists(nodes_file) and os.path.exists(edges_file):
         print(f"  Already exists: {city_dir}, skipping download.")
         return
@@ -81,6 +94,10 @@ def download_and_convert(place: str, output_dir: str, name: str = None) -> None:
                     val = "|".join(str(x) for x in val)
                 props.append("" if val != val else str(val))  # NaN -> ""
             writer.writerow([src, dst] + props)
+
+    # Generate type_meta.json
+    type_meta_path = os.path.join(city_dir, "type_meta.json")
+    generate_type_meta(nodes_file, edges_file, type_meta_path)
 
     print(f"  Done: {city_dir}")
     print(f"    Nodes: {num_nodes:,}")
